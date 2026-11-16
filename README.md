@@ -1,77 +1,64 @@
-🌡️ Autonomous Temperature-Controlled Fan Speed Regulator
+# 🌡️ Autonomous Temperature-Controlled Fan Speed Regulator
 
-An autonomous, zero-latency temperature-controlled fan speed regulator utilizing a 100% discrete analog closed-loop with a passive Arduino-based I²C OLED telemetry layer.
+An industrial-grade, zero-latency temperature-controlled fan speed regulator utilizing a **100% discrete analog closed-loop** (LM35, LM358, NE555) augmented with a **passive Arduino-based I2C OLED telemetry layer**.
 
-This project bridges the gap between fail-safe industrial analog hardware and modern digital monitoring, ensuring that critical thermal management is never compromised by software latency, boot times, or MCU crashes.
+---
 
-🎯 Problem Statement
+## 📌 Project Overview
+Conventional cooling systems in power electronics and computing enclosures rely on either constant full-speed operation or abrupt electromechanical relay switching. These traditional approaches cause excessive power consumption, high acoustic noise, accelerated mechanical bearing wear, and severe thermal shock. 
 
-Conventional cooling systems in industrial equipment and computing enclosures rely on constant full-speed operation or abrupt relay switching. This causes:
+Furthermore, relying entirely on digital microcontrollers (MCUs) for mission-critical thermal regulation introduces software-dependent vulnerabilities such as boot-time latency, firmware crashes, and electromagnetic interference (EMI) lockups. 
 
-Excessive Power Waste: Fans running at 100% when not needed.
+**This project solves these issues by implementing a hybrid architecture:**
+1. **Analog Core (Active Cooling):** A discrete analog loop generates a proportional PWM signal that directly drives a power MOSFET to regulate fan speed with absolutely zero software latency.
+2. **Digital Telemetry (Passive Monitoring):** An Arduino Uno passively reads the analog sensor voltage via a precision divider to display real-time status on an OLED, completely decoupled from the main hardware control loop.
 
-Mechanical Degradation: Accelerated bearing wear and high acoustic noise.
+---
 
-Thermal Shock: Sudden temperature gradients caused by ON/OFF relays.
+## ✨ Key Features
+* **Zero-Latency Response:** Pure analog signal processing ensures immediate fan acceleration as temperatures rise.
+* **Proportional PWM Control:** Eliminates sudden inrush currents and thermal shock by smoothly scaling fan RPM (0 to 16,000 RPM) rather than abruptly toggling power.
+* **Fail-Safe Robustness:** The core cooling loop operates completely independently of the Arduino. If the microcontroller crashes or loses power, the fan continues to regulate temperature automatically.
+* **Passive Digital Telemetry:** Real-time environmental monitoring (`ROOM: COOL`, `ROOM: HOT`, `FAN: OFF`) displayed on a 0.96" OLED UI.
+* **Hardware Safety Override:** An integrated tactile push-button allows operators to instantly drop the MOSFET gate voltage to 0V, halting the motor for emergency maintenance.
 
-Software Vulnerability: Using microcontrollers for primary cooling introduces single points of failure (firmware crashes, EMI interference, and boot-up delays).
+---
 
-💡 Proposed Solution
+## 🛠️ Hardware & Software Components
+### Core Analog Control Loop (Dot PCB)
+* **Temperature Sensor:** LM35DZ Precision Analog IC
+* **Signal Conditioning:** LM358N Dual Operational Amplifier
+* **PWM Generator:** NE555P Precision Timer
+* **Power Switching:** IRFZ44N N-Channel Power MOSFET
+* **Protection:** 1N4007 Flyback Clamp Diode
+* **Voltage Regulation:** LM2596 DC-DC Buck Converter (12V to 5V)
 
-This system implements a Hybrid Control Architecture:
+### Passive Telemetry Layer
+* **Microcontroller:** Arduino Uno R3 (ATmega328P)
+* **Display UI:** 0.96-inch I2C Monochrome OLED (SSD1306)
+* **Software IDE:** Arduino IDE (C++) using `Adafruit_GFX` and `Adafruit_SSD1306` libraries.
 
-Analog Core (Active Cooling): A purely discrete analog control loop (LM35 + LM358 + NE555) continuously generates a proportional Pulse-Width Modulated (PWM) signal. It directly drives a power MOSFET to smoothly scale fan speed based on real-time heat, operating with zero software latency.
+---
 
-Digital Telemetry (Passive Monitoring): An Arduino Uno safely reads the analog sensor voltage via a precision divider network. It displays real-time data on an OLED screen without ever interrupting or governing the primary analog hardware.
+## ⚙️ System Methodology
+1. **Thermal Acquisition:** The LM35 sensor continuously monitors ambient heat, outputting 10mV/°C.
+2. **Carrier Generation:** The NE555 Timer operates in astable mode, generating a constant 1kHz triangle carrier wave.
+3. **Signal Comparison:** The LM358 Op-Amp compares the LM35 sensor voltage against the reference threshold (set at 30.0°C).
+4. **PWM Modulation:** As temperature rises, the Op-Amp modulates the carrier wave into a variable Pulse-Width Modulated (PWM) square wave.
+5. **Motor Actuation:** The PWM signal drives the gate of the IRFZ44N MOSFET, dynamically scaling the 12V cooling fan's RPM.
+6. **Telemetry Sync:** The Arduino Uno reads the analog voltage and updates the OLED display without interrupting the primary analog loop.
 
-✨ Key Features
+---
 
-Zero Firmware Latency: Instantaneous analog reaction to temperature spikes.
+## 📂 Repository Structure
+* `/code` - Contains the `fan_controller.ino` Arduino firmware for the OLED telemetry.
+* `/hardware` - Contains the circuit diagrams, block diagrams, and hardware prototype photos.
+* `/docs` - Contains the IEEE-formatted technical project report and presentation slide deck.
 
-Proportional PWM Scaling: Smooth fan acceleration prevents abrupt inrush currents.
+---
 
-Fail-Safe Robustness: The cooling loop operates completely independently of the Arduino.
+## 👨‍💻 Developer
+Developed by **Giridharun S** 
+*Electronics and Communication Engineering*
 
-Zero-Power Standby: Fan draws 0A when ambient temperature is below the 30°C threshold.
-
-Hardware Safety Interrupt: A manual 2-pin push button instantly halts the motor via hardware grounding.
-
-⚙️ Methodology & Flow
-
-Thermal Sensing: The LM35 sensor outputs an analog voltage proportional to ambient heat (10mV/°C).
-
-Amplification & Comparison: The LM358 Op-Amp compares the thermal voltage against a manually tuned threshold and an astable triangle wave.
-
-PWM Generation: The NE555 timer establishes a 1kHz carrier wave, which the Op-Amp modulates into a variable square wave.
-
-Power Drive: The IRFZ44N MOSFET drives the 12V DC fan based on the duty cycle, while a 1N4007 diode clamps inductive flyback spikes.
-
-Passive UI: The Arduino Uno maps the analog voltage to digital telemetry, displaying status (ROOM: COOL, ROOM: HOT, FAN: OFF) on an I²C OLED.
-
-🧰 Hardware & Components
-
-Sensors & Logic: LM35 (Temperature Sensor), LM358 (Dual Op-Amp), NE555 (Precision Timer IC)
-
-Power Switching: IRFZ44N (N-Channel Power MOSFET), 1N4007 (Flyback Diode)
-
-Actuation: 12V DC Brushless Cooling Fan
-
-Digital Telemetry: Arduino Uno R3, 0.96" SSD1306 I²C OLED Display
-
-Power Regulation: 12V 2A DC Supply, LM2596 Buck Converter (12V to 5V)
-
-📂 Repository Structure
-
-/code - Contains the Arduino firmware (.ino) for the passive OLED telemetry monitor.
-
-/hardware - Contains the system block diagram, circuit schematics, and prototype photos.
-
-/docs - Contains the comprehensive IEEE-formatted project report and presentation slides.
-
-🚀 Future Scope
-
-SMD PCB Fabrication: Consolidating the dot PCB circuit into an ultra-compact, double-sided Surface Mount Device (SMD) layout.
-
-IoT Telemetry: Upgrading the Arduino to an ESP32 for Wi-Fi cloud data logging and predictive maintenance alerts.
-
-Closed-Loop RPM Regulation: Implementing optical tachometer feedback to stabilize motor RPM against dust buildup or bearing aging.
+*Feel free to star ⭐ this repository if you found it useful!*
