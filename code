@@ -1,0 +1,97 @@
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+#define SCREEN_ADDRESS 0x3C
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+const int PIN_TEMP = A0;
+const int PIN_BTN  = 2;
+const int PIN_FAN  = 9; // PWM output to MOSFET Gate
+
+const float TEMP_THRESHOLD = 30.0;
+const float TEMP_MAX = 45.0; // Temperature at which fan hits 100% speed
+
+void setup() {
+  pinMode(PIN_BTN, INPUT_PULLUP);
+  pinMode(PIN_FAN, OUTPUT);
+  analogWrite(PIN_FAN, 0); // Ensure fan is off on startup
+
+  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+    while (true);
+  }
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+  display.display();
+}
+
+void loop() {
+  // 1. Read and smooth temperature
+  long adcSum = 0;
+  for (int i = 0; i < 20; i++) {
+    adcSum += analogRead(PIN_TEMP);
+    delay(2);
+  }
+  float avgAdc = (float)adcSum / 20.0;
+  float sensorVoltage = (avgAdc * 5.0) / 1024.0;
+  float currentTemp = sensorVoltage * 100.0;
+  if (currentTemp < 0.0) currentTemp = 0.0;
+
+  // 2. Check safety override button
+  bool isButtonHeld = (digitalRead(PIN_BTN) == LOW);
+  String roomStatus = "";
+  int fanSpeedPWM = 0; // 0 (OFF) to 255 (MAX)
+
+  if (isButtonHeld) {
+    roomStatus = "FAN: OFF";
+    fanSpeedPWM = 0;
+  } else {
+    // 3. Digital PWM Logic
+    if (currentTemp < TEMP_THRESHOLD) {
+      roomStatus = "ROOM: COOL";
+      fanSpeedPWM = 0;
+    } else {
+      roomStatus = "ROOM: HOT";
+      // Map temperature range (30-45C) to PWM range (100-255)
+      // Starting at 100 gives the fan enough voltage to overcome static friction
+      fanSpeedPWM = map(currentTemp, TEMP_THRESHOLD, TEMP_MAX, 100, 255);
+      fanSpeedPWM = constrain(fanSpeedPWM, 100, 255); 
+    }
+  }
+
+  // Execute motor speed
+  analogWrite(PIN_FAN, fanSpeedPWM);
+
+  // 4. Update OLED UI
+  display.clearDisplay();
+  display.drawRect(0, 0, 128, 64, SSD1306_WHITE);
+  
+  display.setTextSize(2);
+  display.setCursor(8, 12);
+  display.print("T:");
+  display.print(currentTemp, 1);
+  display.print((char)247);
+  display.print("C");
+  
+  display.drawLine(6, 32, 122, 32, SSD1306_WHITE);
+  
+  display.setTextSize(2);
+  display.setCursor(8, 38);
+  
+  if (isButtonHeld) {
+    display.fillRect(4, 34, 120, 24, SSD1306_WHITE);
+    display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+    display.setCursor(16, 39);
+    display.print(roomStatus);
+    display.setTextColor(SSD1306_WHITE);
+  } else {
+    display.print(roomStatus);
+  }
+  
+  display.display();
+  delay(150);
+}
